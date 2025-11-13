@@ -17,7 +17,6 @@ export async function reverseImageSearch(imageUrl) {
   let driver = null;
   
   try {
-    // Setup Chrome options for headless browsing
     const options = new ChromeOptions();
     options.addArguments('--headless');
     options.addArguments('--no-sandbox');
@@ -26,13 +25,11 @@ export async function reverseImageSearch(imageUrl) {
     options.addArguments('--window-size=1920,1080');
     options.addArguments('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
 
-    // Create WebDriver instance
     driver = await new Builder()
       .forBrowser('chrome')
       .setChromeOptions(options)
       .build();
 
-    // Download image to temp file if it's a URL
     let imagePath = imageUrl;
     if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
       const response = await axios.get(imageUrl, { responseType: 'arraybuffer' });
@@ -47,10 +44,8 @@ export async function reverseImageSearch(imageUrl) {
       imagePath = tempPath;
     }
 
-    // Navigate to Google Images
     await driver.get('https://www.google.com/imghp');
 
-    // Click on the camera icon to upload image
     try {
       const cameraButton = await driver.wait(
         until.elementLocated(By.css('div[data-ved] svg[viewBox="0 0 24 24"]')),
@@ -58,18 +53,14 @@ export async function reverseImageSearch(imageUrl) {
       );
       await cameraButton.click();
     } catch (e) {
-      // Alternative: Try direct URL method
       const searchByImageUrl = `https://www.google.com/searchbyimage?image_url=${encodeURIComponent(imageUrl)}`;
       await driver.get(searchByImageUrl);
     }
 
-    // Wait for results page to load
     await driver.wait(until.titleContains('Google'), 10000);
 
-    // Extract search results
     const results = await extractSearchResults(driver);
 
-    // Clean up temp file if created
     if (imagePath !== imageUrl && fs.existsSync(imagePath)) {
       fs.unlinkSync(imagePath);
     }
@@ -108,10 +99,8 @@ async function extractSearchResults(driver) {
   const results = [];
   
   try {
-    // Wait for results to load
     await driver.sleep(2000);
 
-    // Find result links
     const resultElements = await driver.findElements(By.css('div[data-ved] a[href*="http"]'));
     
     for (let i = 0; i < Math.min(resultElements.length, 10); i++) {
@@ -121,7 +110,6 @@ async function extractSearchResults(driver) {
         const text = await element.getText();
         
         if (url && url.startsWith('http')) {
-          // Extract domain from URL
           const domain = new URL(url).hostname;
           
           results.push({
@@ -133,12 +121,10 @@ async function extractSearchResults(driver) {
           });
         }
       } catch (e) {
-        // Skip invalid elements
         continue;
       }
     }
 
-    // Alternative: Try to get "Pages that include matching images" section
     try {
       const matchingPages = await driver.findElements(By.css('div[data-ved] h3'));
       for (const page of matchingPages.slice(0, 5)) {
@@ -158,7 +144,6 @@ async function extractSearchResults(driver) {
         }
       }
     } catch (e) {
-      // Section might not exist, continue
     }
 
   } catch (error) {
@@ -168,22 +153,16 @@ async function extractSearchResults(driver) {
   return results;
 }
 
-/**
- * Alternative method: Use Google's search by image URL directly
- * This is faster but may be less reliable
- */
 export async function reverseImageSearchByUrl(imageUrl) {
   try {
     const searchUrl = `https://www.google.com/searchbyimage?image_url=${encodeURIComponent(imageUrl)}`;
     
-    // Use axios to fetch and parse the page (simpler but less reliable)
     const response = await axios.get(searchUrl, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
       }
     });
 
-    // Parse HTML for results (basic implementation)
     const html = response.data;
     const urlMatches = html.match(/https?:\/\/[^\s"<>]+/g) || [];
     
